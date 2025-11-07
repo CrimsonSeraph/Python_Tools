@@ -1,0 +1,73 @@
+name: Package Python Files
+
+on:
+  push:
+    tags:
+      - 'v*'  # 版本标签触发
+  workflow_dispatch:  # 手动触发
+
+jobs:
+  package-python:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Create flat package directory
+      run: |
+        mkdir -p flat-package
+        
+    - name: Copy all Python files to root (flatten structure)
+      run: |
+        # 查找所有 .py 文件并复制到临时目录，保持扁平结构
+        find . -name "*.py" -type f ! -path "./.git/*" ! -path "./flat-package/*" | while read file; do
+          filename=$(basename "$file")
+          # 处理重名文件
+          if [ -f "flat-package/$filename" ]; then
+            # 如果文件已存在，添加前缀避免覆盖
+            prefix=$(dirname "$file" | tr '/' '_' | sed 's/^._//')
+            cp "$file" "flat-package/${prefix}_${filename}"
+          else
+            cp "$file" "flat-package/"
+          fi
+        done
+        
+    - name: Copy UserGuide.txt if exists
+      run: |
+        if [ -f "UserGuide.txt" ]; then
+          cp UserGuide.txt flat-package/
+          echo "UserGuide.txt 已包含在包中"
+        else
+          echo "警告: UserGuide.txt 不存在"
+        fi
+        
+    - name: Create package info
+      run: |
+        echo "项目: ${{ github.event.repository.name }}" > flat-package/Package-Info.txt
+        echo "版本: ${{ github.ref_name }}" >> flat-package/Package-Info.txt
+        echo "打包时间: $(date)" >> flat-package/Package-Info.txt
+        echo "包含的 Python 文件:" >> flat-package/Package-Info.txt
+        ls -1 flat-package/*.py | wc -l >> flat-package/Package-Info.txt
+        
+    - name: Create zip archive with project name
+      run: |
+        cd flat-package
+        zip -r ../${{ github.event.repository.name }}.zip .
+        
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: ${{ github.event.repository.name }}.zip
+        body: |
+          ## Python 脚本集合
+          
+          此版本包含所有 Python 脚本文件和用户指南。
+          
+          ### 包含内容
+          - 所有 `.py` 文件（扁平结构）
+          - UserGuide.txt（如果存在）
+          - Package-Info.txt（包信息）
+          
+          ### 使用说明
+          直接解压后即可使用，所有文件都在根目录中。
