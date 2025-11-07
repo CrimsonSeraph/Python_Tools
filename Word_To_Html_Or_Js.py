@@ -1,4 +1,4 @@
-﻿### Word文档转换为JS文件的工具（改进版）
+﻿### Word文档转换为JS/HTML文件的工具
 ## 需要安装依赖: pip install python-docx
 
 import os
@@ -7,9 +7,9 @@ import re
 from docx import Document
 from pathlib import Path
 
-class WordToJSConverter:
+class WordToFileConverter:
     """
-    Word文档转JS转换器
+    Word文档转文件转换器
     """
     
     def __init__(self):
@@ -43,7 +43,7 @@ class WordToJSConverter:
 
     def pt_to_class_name(self, font_size_pt):
         """
-        将Word字体大小(磅)转换为CSS类名（改进版）
+        将Word字体大小(磅)转换为CSS类名
         """
         if font_size_pt is None:
             return "normal"
@@ -112,7 +112,7 @@ class WordToJSConverter:
 
     def process_paragraph(self, paragraph):
         """
-        处理单个段落，返回HTML字符串（改进版）
+        处理单个段落，返回HTML字符串
         """
         html_parts = []
         
@@ -122,8 +122,8 @@ class WordToJSConverter:
             alignment = self.alignment_map.get(paragraph.alignment, 'left')
         
         for run in paragraph.runs:
-            text = run.text.strip()
-            if not text:
+            text = run.text
+            if not text.strip():
                 continue
                 
             # 获取字体大小
@@ -147,29 +147,33 @@ class WordToJSConverter:
         
         if html_parts:
             # 合并连续的文本
-            combined_html = ' '.join(html_parts)
+            combined_html = ''.join(html_parts)
             return f'<p class="align-{alignment}">{combined_html}</p>'
         return ""
 
-    def convert_word_to_js(self, docx_path, output_dir=None):
+    def convert_word_to_file(self, docx_path, output_type='js', output_dir=None):
         """
-        将Word文档转换为JS文件（改进版）
+        将Word文档转换为指定类型的文件
+        output_type: 'js' 或 'html'
         """
         try:
+            # 将路径转换为Path对象
+            input_path = Path(docx_path)
+            
             # 检查文件是否存在
-            if not os.path.exists(docx_path):
-                print(f"错误: 文件不存在: {docx_path}")
+            if not input_path.exists():
+                print(f"错误: 文件不存在: {input_path}")
                 return False
                 
-            # 检查文件格式
-            if not docx_path.lower().endswith('.docx'):
-                print(f"错误: 不支持的文件格式: {docx_path}")
+            # 使用Path对象的suffix属性检查文件格式
+            if input_path.suffix.lower() not in ['.docx']:
+                print(f"错误: 不支持的文件格式: {input_path}")
                 return False
             
-            print(f"正在处理: {Path(docx_path).name}")
+            print(f"正在处理: {input_path.name}")
             
             # 读取Word文档
-            doc = Document(docx_path)
+            doc = Document(input_path)
             
             # 处理所有段落
             html_content = []
@@ -179,16 +183,26 @@ class WordToJSConverter:
                     if html_para:
                         html_content.append(html_para)
             
-            # 组合所有HTML内容
-            full_html = '\n        '.join(html_content)
+            # 组合所有HTML内容，每行一个段落
+            full_html = '\n'.join(html_content)
             
-            # 使用JSON安全地转义HTML内容
-            escaped_html = json.dumps(full_html)[1:-1]  # 移除外层的引号
+            # 确定输出路径
+            if output_dir is None:
+                output_dir = Path.cwd()
+            else:
+                output_dir = Path(output_dir)
+                output_dir.mkdir(exist_ok=True)
             
-            # 生成JS文件内容（改进版，避免模板字符串问题）
-            js_content = f"""// 自动生成的文档内容
+            # 生成输出文件名
+            output_filename = input_path.stem + f'.{output_type}'
+            output_path = output_dir / output_filename
+            
+            # 根据输出类型生成不同的内容
+            if output_type == 'js':
+                # 生成JS文件内容
+                file_content = f"""// 自动生成的文档内容
 const CONTENT_DATA = {{
-    content: `{escaped_html}`
+    content: `{full_html}`
 }};
 
 // 导出供其他模块使用
@@ -206,21 +220,61 @@ if (typeof document !== 'undefined') {{
     }});
 }}
 """
-            # 确定输出路径
-            if output_dir is None:
-                output_dir = Path.cwd()
+            elif output_type == 'html':
+                # 生成HTML文件内容
+                file_content = f"""<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{input_path.stem}</title>
+    <link rel="stylesheet" href="word-styles.css">
+    <style>
+        body {{
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+            font-family: Arial, sans-serif;
+        }}
+        .container {{
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            padding: 30px;
+            margin: 0 auto;
+            max-width: 900px;
+        }}
+        .header {{
+            text-align: center;
+            color: #333;
+            border-bottom: 2px solid #eee;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>{input_path.stem}</h1>
+        </div>
+        <div id="word-content" class="content-container">
+{full_html}
+        </div>
+    </div>
+</body>
+</html>
+"""
             else:
-                output_dir = Path(output_dir)
-                output_dir.mkdir(exist_ok=True)
+                print(f"错误: 不支持的输出类型: {output_type}")
+                return False
             
-            # 生成输出文件名
-            input_path = Path(docx_path)
-            output_filename = input_path.stem + '.js'
-            output_path = output_dir / output_filename
-            
-            # 写入JS文件
+            # 写入文件
             with open(output_path, 'w', encoding='utf-8') as f:
-                f.write(js_content)
+                f.write(file_content)
+            
+            # 确保CSS文件存在
+            self.ensure_css_file(output_dir)
             
             print(f"✓ 成功转换: {input_path.name} -> {output_path.name}")
             return True
@@ -231,44 +285,21 @@ if (typeof document !== 'undefined') {{
             traceback.print_exc()
             return False
 
-    def batch_convert_word_files(self, directory=None):
+    def ensure_css_file(self, output_dir):
         """
-        批量转换目录下的所有Word文档
+        确保CSS文件存在
         """
-        if directory is None:
-            directory = Path.cwd()
-        else:
-            directory = Path(directory)
-        
-        if not directory.exists():
-            print(f"错误: 目录不存在: {directory}")
-            return
-        
-        # 支持的Word文档扩展名
-        word_extensions = ['.docx']  # 主要支持.docx格式
-        
-        converted_count = 0
-        total_count = 0
-        
-        print(f"开始在目录 {directory} 中查找Word文档...")
-        
-        for file_path in directory.iterdir():
-            if file_path.is_file() and file_path.suffix.lower() in word_extensions:
-                total_count += 1
-                if self.convert_word_to_js(file_path, directory):
-                    converted_count += 1
-        
-        print(f"\n转换完成: {converted_count}/{total_count} 个文件成功转换")
-        return converted_count
+        css_path = Path(output_dir) / 'word-styles.css'
+        if not css_path.exists():
+            self.generate_css_file(output_dir)
 
-    def generate_sample_files(self, output_dir=None):
+    def generate_css_file(self, output_dir=None):
         """
-        生成示例CSS文件和HTML文件
+        生成CSS文件
         """
         if output_dir is None:
             output_dir = Path.cwd()
         
-        # 生成CSS文件
         css_content = """/* Word文档字体大小样式定义 */
 /* 中文字号 */
 .initial { font-size: 42pt; }        /* 初号 */
@@ -333,13 +364,15 @@ if (typeof document !== 'undefined') {{
 /* 段落基础样式 */
 p {
     line-height: 1.6;
-    margin: 8px 0;
+    margin: 12px 0;
     padding: 4px 0;
+    page-break-inside: avoid;
 }
 
 /* 文本样式 */
 span {
     display: inline;
+    white-space: pre-wrap;
 }
 
 /* 页面容器 */
@@ -349,6 +382,7 @@ span {
     padding: 20px;
     font-family: 'Microsoft YaHei', 'SimSun', serif;
     background: white;
+    line-height: 1.6;
 }
 """
         
@@ -356,60 +390,56 @@ span {
         with open(css_path, 'w', encoding='utf-8') as f:
             f.write(css_content)
         
-        # 生成HTML示例文件
-        html_content = """<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Word文档内容展示</title>
-    <link rel="stylesheet" href="word-styles.css">
-    <style>
-        body {
-            margin: 0;
-            padding: 20px;
-            background-color: #f5f5f5;
-            font-family: Arial, sans-serif;
-        }
-        .container {
-            background: white;
-            border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            padding: 30px;
-            margin: 0 auto;
-            max-width: 900px;
-        }
-        h1 {
-            text-align: center;
-            color: #333;
-            border-bottom: 2px solid #eee;
-            padding-bottom: 10px;
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h1>文档内容展示</h1>
-        <div id="word-content" class="content-container">
-            <!-- 内容将通过JS自动填充 -->
-        </div>
-    </div>
-    
-    <!-- 引入生成的JS文件（请将example.js替换为实际的文件名） -->
-    <script src="example.js"></script>
-</body>
-</html>
-"""
+        print(f"✓ CSS文件已生成: {css_path}")
+
+    def batch_convert_word_files(self, directory=None, output_type='js'):
+        """
+        批量转换目录下的所有Word文档
+        """
+        if directory is None:
+            directory = Path.cwd()
+        else:
+            directory = Path(directory)
         
-        html_path = output_dir / 'example.html'
-        with open(html_path, 'w', encoding='utf-8') as f:
-            f.write(html_content)
+        if not directory.exists():
+            print(f"错误: 目录不存在: {directory}")
+            return
         
-        print(f"✓ 示例CSS文件已生成: {css_path}")
-        print(f"✓ 示例HTML文件已生成: {html_path}")
+        # 支持的Word文档扩展名
+        word_extensions = ['.docx']
+        
+        converted_count = 0
+        total_count = 0
+        
+        print(f"开始在目录 {directory} 中查找Word文档...")
+        
+        # 确保CSS文件存在
+        self.ensure_css_file(directory)
+        
+        for file_path in directory.iterdir():
+            if file_path.is_file() and file_path.suffix.lower() in word_extensions:
+                total_count += 1
+                if self.convert_word_to_file(file_path, output_type, directory):
+                    converted_count += 1
+        
+        print(f"\n转换完成: {converted_count}/{total_count} 个文件成功转换")
+        return converted_count
+
+    def generate_sample_files(self, output_dir=None):
+        """
+        生成示例文件
+        """
+        if output_dir is None:
+            output_dir = Path.cwd()
+        
+        # 生成CSS文件
+        self.generate_css_file(output_dir)
+        
+        print(f"✓ 示例文件已生成在: {output_dir}")
         print("\n使用说明:")
-        print("1. 将生成的JS文件重命名为example.html中引用的文件名")
-        print("2. 用浏览器打开example.html查看效果")
+        print("1. 生成的word-styles.css包含所有字体样式定义")
+        print("2. JS文件需要通过HTML引入并调用CONTENT_DATA.content")
+        print("3. HTML文件可以直接在浏览器中打开查看")
 
 def main():
     """
@@ -422,16 +452,16 @@ def main():
         print("请先安装 python-docx: pip install python-docx")
         exit(1)
     
-    print("Word文档转JS转换器（改进版）")
+    print("Word文档转文件转换器")
     print("=" * 50)
     
-    converter = WordToJSConverter()
+    converter = WordToFileConverter()
     
     while True:
         print("\n请选择操作:")
         print("1. 批量转换当前目录下的Word文档")
         print("2. 转换指定Word文档")
-        print("3. 生成示例文件")
+        print("3. 生成CSS文件")
         print("4. 退出")
         
         choice = input("请输入选择 (1-4): ").strip()
@@ -440,7 +470,14 @@ def main():
             directory = input("请输入目录路径（直接回车使用当前目录）: ").strip()
             if not directory:
                 directory = None
-            converter.batch_convert_word_files(directory)
+            
+            print("\n请选择输出格式:")
+            print("1. JS文件")
+            print("2. HTML文件")
+            format_choice = input("请输入选择 (1-2): ").strip()
+            
+            output_type = 'js' if format_choice == '1' else 'html'
+            converter.batch_convert_word_files(directory, output_type)
             
         elif choice == '2':
             file_path = input("请输入Word文档路径: ").strip()
@@ -448,7 +485,14 @@ def main():
                 output_dir = input("请输入输出目录（直接回车使用当前目录）: ").strip()
                 if not output_dir:
                     output_dir = None
-                converter.convert_word_to_js(file_path, output_dir)
+                
+                print("\n请选择输出格式:")
+                print("1. JS文件")
+                print("2. HTML文件")
+                format_choice = input("请输入选择 (1-2): ").strip()
+                
+                output_type = 'js' if format_choice == '1' else 'html'
+                converter.convert_word_to_file(file_path, output_type, output_dir)
             else:
                 print("文件路径不能为空")
                 
@@ -456,7 +500,7 @@ def main():
             output_dir = input("请输入输出目录（直接回车使用当前目录）: ").strip()
             if not output_dir:
                 output_dir = None
-            converter.generate_sample_files(output_dir)
+            converter.generate_css_file(output_dir)
             
         elif choice == '4':
             print("再见！")
