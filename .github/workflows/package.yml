@@ -1,0 +1,49 @@
+#标签触发命令:
+#git tag v1.0.0
+#git push origin v1.0.0
+
+name: Package Python Tools
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    steps:
+    - uses: actions/checkout@v4
+      
+    - name: Create package
+      run: |
+        # 根据触发类型确定文件名
+        if [ "${{ github.event_name }}" = "push" ]; then
+          FILENAME="${{ github.event.repository.name }}-${{ github.ref_name }}.zip"
+        else
+          FILENAME="${{ github.event.repository.name }}-manual-$(date +%Y%m%d).zip"
+        fi
+        zip $FILENAME *.py UserGuide.txt
+        echo "FILENAME=$FILENAME" >> $GITHUB_ENV
+        
+    - name: Release or Artifact
+      run: |
+        echo "触发方式: ${{ github.event_name }}"
+        echo "包文件: $FILENAME"
+        
+    - name: Create Release (标签触发)
+      if: github.event_name == 'push'
+      uses: softprops/action-gh-release@v1
+      with:
+        files: ${{ env.FILENAME }}
+        
+    - name: Upload Artifact (手动触发)
+      if: github.event_name == 'workflow_dispatch'
+      uses: actions/upload-artifact@v4
+      with:
+        name: python-tools-package
+        path: ${{ env.FILENAME }}
+        retention-days: 1
