@@ -31,3 +31,30 @@ pip install python-docx
 
 - 相关示例  
 ![Word_To_Html_Or_Js.py示例图](images/Word_To_Html_Or_Js.png)  
+
+### Picture_Batch_Conv - 图片批量格式转换工具  
+**文件**: `Picture_Batch_Conv.py`  
+
+#### 功能描述  
+支持多种图片格式之间的批量转换，包括PNG、WEBP、JPG、JPEG、JPE、TIF、TIFF、BMP等格式。 
+
+#### 功能/注意事项  
+- 支持多种图片格式的相互转换  
+- 自动创建输入（input_images）和输出（converted_images）文件夹  
+- 批量处理文件夹中的所有图片文件  
+- 显示详细的转换进度和统计信息  
+- 智能处理透明通道（转换为JPG等格式时自动填充白色背景）  
+- 输入文件夹中不支持的文件会被跳过并提示  
+
+#### 使用方法  
+
+-  安装额外依赖库:    
+```bash
+pip install Pillow
+```
+
+- 使用  
+直接运行脚本，按照提示操作。  
+
+- 相关示例  
+![Picture_Batch_Conv.py示例图](images/Picture_Batch_Conv.png)  
