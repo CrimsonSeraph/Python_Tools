@@ -26,7 +26,10 @@ jobs:
         else
           FILENAME="${{ github.event.repository.name }}-manual-$(date +%Y%m%d).zip"
         fi
-        zip $FILENAME *.py UserGuide.txt
+        
+        # 查找所有.py文件和UserGuide.txt
+        find . -name "*.py" -o -name "UserGuide.txt" | zip -@ $FILENAME
+        
         echo "FILENAME=$FILENAME" >> $GITHUB_ENV
         
     - name: Release or Artifact
