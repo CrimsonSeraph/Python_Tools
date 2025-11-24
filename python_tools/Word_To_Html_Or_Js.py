@@ -1,5 +1,5 @@
-﻿### Word文档转换为JS/HTML文件的工具
-## 需要安装依赖: pip install python-docx
+﻿# Word文档转换为JS/HTML文件的工具
+# 需要安装依赖: pip install python-docx
 
 import os
 import json
@@ -40,6 +40,50 @@ class WordToFileConverter:
             2: 'right',   # 右对齐
             3: 'justify'  # 两端对齐
         }
+
+    def select_folder_dialog(self, title):
+        """使用tkinter弹出文件夹选择对话框"""
+        try:
+            import tkinter as tk
+            from tkinter import filedialog
+        except ImportError:
+            print("错误: 无法导入tkinter，请确保已安装tkinter")
+            return None
+        
+        # 创建隐藏的根窗口
+        root = tk.Tk()
+        root.withdraw()  # 隐藏主窗口
+        root.attributes('-topmost', True)  # 确保对话框在最前面
+        
+        # 弹出文件夹选择对话框
+        folder_path = filedialog.askdirectory(title=title)
+        
+        # 销毁根窗口
+        root.destroy()
+        
+        return folder_path
+
+    def select_file_dialog(self, title, filetypes):
+        """使用tkinter弹出文件选择对话框"""
+        try:
+            import tkinter as tk
+            from tkinter import filedialog
+        except ImportError:
+            print("错误: 无法导入tkinter，请确保已安装tkinter")
+            return None
+        
+        # 创建隐藏的根窗口
+        root = tk.Tk()
+        root.withdraw()  # 隐藏主窗口
+        root.attributes('-topmost', True)  # 确保对话框在最前面
+        
+        # 弹出文件选择对话框
+        file_path = filedialog.askopenfilename(title=title, filetypes=filetypes)
+        
+        # 销毁根窗口
+        root.destroy()
+        
+        return file_path
 
     def pt_to_class_name(self, font_size_pt):
         """
@@ -276,7 +320,7 @@ if (typeof document !== 'undefined') {{
             # 确保CSS文件存在
             self.ensure_css_file(output_dir)
             
-            print(f"✓ 成功转换: {input_path.name} -> {output_path.name}")
+            print(f"✓ 成功转换: {input_path.name} -> {output_path}")
             return True
             
         except Exception as e:
@@ -392,18 +436,25 @@ span {
         
         print(f"✓ CSS文件已生成: {css_path}")
 
-    def batch_convert_word_files(self, directory=None, output_type='js'):
+    def batch_convert_word_files(self, input_dir=None, output_type='js', output_dir=None):
         """
         批量转换目录下的所有Word文档
         """
-        if directory is None:
-            directory = Path.cwd()
+        if input_dir is None:
+            input_dir = Path.cwd()
         else:
-            directory = Path(directory)
+            input_dir = Path(input_dir)
         
-        if not directory.exists():
-            print(f"错误: 目录不存在: {directory}")
+        if not input_dir.exists():
+            print(f"错误: 输入目录不存在: {input_dir}")
             return
+        
+        # 如果未指定输出目录，使用输入目录
+        if output_dir is None:
+            output_dir = input_dir
+        else:
+            output_dir = Path(output_dir)
+            output_dir.mkdir(exist_ok=True)
         
         # 支持的Word文档扩展名
         word_extensions = ['.docx']
@@ -411,18 +462,20 @@ span {
         converted_count = 0
         total_count = 0
         
-        print(f"开始在目录 {directory} 中查找Word文档...")
+        print(f"开始在目录 {input_dir} 中查找Word文档...")
+        print(f"输出目录: {output_dir}")
         
         # 确保CSS文件存在
-        self.ensure_css_file(directory)
+        self.ensure_css_file(output_dir)
         
-        for file_path in directory.iterdir():
+        for file_path in input_dir.iterdir():
             if file_path.is_file() and file_path.suffix.lower() in word_extensions:
                 total_count += 1
-                if self.convert_word_to_file(file_path, output_type, directory):
+                if self.convert_word_to_file(file_path, output_type, output_dir):
                     converted_count += 1
         
         print(f"\n转换完成: {converted_count}/{total_count} 个文件成功转换")
+        print(f"输出目录: {output_dir}")
         return converted_count
 
     def generate_sample_files(self, output_dir=None):
@@ -459,17 +512,32 @@ def main():
     
     while True:
         print("\n请选择操作:")
-        print("1. 批量转换当前目录下的Word文档")
-        print("2. 转换指定Word文档")
+        print("1. 批量转换Word文档")
+        print("2. 转换单个Word文档")
         print("3. 生成CSS文件")
         print("4. 退出")
         
         choice = input("请输入选择 (1-4): ").strip()
         
         if choice == '1':
-            directory = input("请输入目录路径（直接回车使用当前目录）: ").strip()
-            if not directory:
-                directory = None
+            print("\n请选择输入目录...")
+            input_dir = converter.select_folder_dialog("选择包含Word文档的目录")
+            
+            if not input_dir:
+                print("未选择目录，操作取消")
+                continue
+                
+            print(f"已选择输入目录: {input_dir}")
+            
+            # 选择输出目录
+            print("\n请选择输出目录...")
+            output_dir = converter.select_folder_dialog("选择输出目录")
+            
+            if not output_dir:
+                output_dir = input_dir  # 如果未选择输出目录，使用输入目录
+                print(f"使用输入目录作为输出目录: {input_dir}")
+            else:
+                print(f"已选择输出目录: {output_dir}")
             
             print("\n请选择输出格式:")
             print("1. JS文件")
@@ -477,33 +545,58 @@ def main():
             format_choice = input("请输入选择 (1-2): ").strip()
             
             output_type = 'js' if format_choice == '1' else 'html'
-            converter.batch_convert_word_files(directory, output_type)
+            
+            print(f"\n开始批量转换...")
+            converter.batch_convert_word_files(input_dir, output_type, output_dir)
             
         elif choice == '2':
-            file_path = input("请输入Word文档路径: ").strip()
-            if file_path:
-                output_dir = input("请输入输出目录（直接回车使用当前目录）: ").strip()
-                if not output_dir:
-                    output_dir = None
+            print("\n请选择Word文档...")
+            file_path = converter.select_file_dialog(
+                "选择Word文档", 
+                [("Word文档", "*.docx"), ("所有文件", "*.*")]
+            )
+            
+            if not file_path:
+                print("未选择文件，操作取消")
+                continue
                 
-                print("\n请选择输出格式:")
-                print("1. JS文件")
-                print("2. HTML文件")
-                format_choice = input("请输入选择 (1-2): ").strip()
-                
-                output_type = 'js' if format_choice == '1' else 'html'
-                converter.convert_word_to_file(file_path, output_type, output_dir)
+            print(f"已选择文件: {file_path}")
+            
+            # 选择输出目录
+            print("\n请选择输出目录...")
+            output_dir = converter.select_folder_dialog("选择输出目录")
+            
+            if not output_dir:
+                output_dir = os.path.dirname(file_path)  # 如果未选择输出目录，使用文件所在目录
+                print(f"使用文件所在目录作为输出目录: {output_dir}")
             else:
-                print("文件路径不能为空")
+                print(f"已选择输出目录: {output_dir}")
+            
+            print("\n请选择输出格式:")
+            print("1. JS文件")
+            print("2. HTML文件")
+            format_choice = input("请输入选择 (1-2): ").strip()
+            
+            output_type = 'js' if format_choice == '1' else 'html'
+            
+            print(f"\n开始转换...")
+            converter.convert_word_to_file(file_path, output_type, output_dir)
                 
         elif choice == '3':
-            output_dir = input("请输入输出目录（直接回车使用当前目录）: ").strip()
+            print("\n请选择CSS文件输出目录...")
+            output_dir = converter.select_folder_dialog("选择CSS文件输出目录")
+            
             if not output_dir:
                 output_dir = None
+                print("使用当前目录")
+            else:
+                print(f"已选择输出目录: {output_dir}")
+                
             converter.generate_css_file(output_dir)
             
         elif choice == '4':
             print("再见！")
+            input("\n按 Enter 键退出...")
             break
             
         else:

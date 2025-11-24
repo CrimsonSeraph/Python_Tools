@@ -496,6 +496,7 @@ class BatchExtractor:
                     break
             
             print("\n感谢使用批量解压工具！")
+            input("\n按 Enter 键退出...")
             
         except Exception as e:
             print(f"程序运行出错: {str(e)}")

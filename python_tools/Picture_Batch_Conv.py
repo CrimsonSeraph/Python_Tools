@@ -15,8 +15,23 @@ SUPPORTED_FORMATS = {
     'bmp': ('BMP', '.bmp')
 }
 
-def create_folders():
-    """创建输入和输出文件夹"""
+def get_storage_option():
+    """获取用户选择的存储方式"""
+    print("\n请选择存储方式:")
+    print("1. 使用默认文件夹 (input_images 和 converted_images)")
+    print("2. 自定义输入和输出路径")
+    
+    while True:
+        choice = input("请选择 (1 或 2): ").strip()
+        if choice == '1':
+            return 'default'
+        elif choice == '2':
+            return 'custom'
+        else:
+            print("无效选择，请输入 1 或 2")
+
+def create_default_folders():
+    """创建默认的输入和输出文件夹"""
     input_folder = "input_images"
     output_folder = "converted_images"
     
@@ -34,6 +49,74 @@ def create_folders():
         print(f"输出文件夹已存在: {output_folder}")
     
     return input_folder, output_folder
+
+def select_folder_dialog(title):
+    """使用tkinter弹出文件夹选择对话框"""
+    try:
+        import tkinter as tk
+        from tkinter import filedialog
+    except ImportError:
+        print("错误: 无法导入tkinter，请确保已安装tkinter")
+        return None
+    
+    # 创建隐藏的根窗口
+    root = tk.Tk()
+    root.withdraw()  # 隐藏主窗口
+    root.attributes('-topmost', True)  # 确保对话框在最前面
+    
+    # 弹出文件夹选择对话框
+    folder_path = filedialog.askdirectory(title=title)
+    
+    # 销毁根窗口
+    root.destroy()
+    
+    return folder_path
+
+def get_custom_paths():
+    """获取用户自定义的输入和输出路径（使用图形界面）"""
+    print("\n将弹出文件夹选择对话框...")
+    
+    # 选择输入文件夹
+    print("请选择输入文件夹...")
+    input_folder = select_folder_dialog("选择输入文件夹（包含待转换图片）")
+    
+    if not input_folder:
+        print("未选择输入文件夹，使用默认路径")
+        input_folder = "input_images"
+        if not os.path.exists(input_folder):
+            os.makedirs(input_folder)
+    
+    print(f"输入文件夹: {input_folder}")
+    
+    # 选择输出文件夹
+    print("\n请选择输出文件夹...")
+    output_folder = select_folder_dialog("选择输出文件夹（保存转换后的图片）")
+    
+    if not output_folder:
+        print("未选择输出文件夹，使用默认路径")
+        output_folder = "converted_images"
+        if not os.path.exists(output_folder):
+            os.makedirs(output_folder)
+    
+    print(f"输出文件夹: {output_folder}")
+    
+    # 检查输入和输出路径是否相同
+    if os.path.abspath(input_folder) == os.path.abspath(output_folder):
+        print("警告：输入和输出路径相同，这可能导致文件覆盖！")
+        confirm = input("是否继续? (Y/N): ").strip().lower()
+        if confirm not in ['y', 'yes']:
+            return get_custom_paths()  # 重新选择
+    
+    return input_folder, output_folder
+
+def setup_folders():
+    """设置输入和输出文件夹"""
+    storage_option = get_storage_option()
+    
+    if storage_option == 'default':
+        return create_default_folders()
+    else:
+        return get_custom_paths()
 
 def get_target_format():
     """获取用户选择的目标格式"""
@@ -91,7 +174,11 @@ def process_images(input_folder, output_folder, target_format):
     print("-" * 50)
     
     # 获取输入文件夹中的所有文件
-    files = [f for f in os.listdir(input_folder) if os.path.isfile(os.path.join(input_folder, f))]
+    try:
+        files = [f for f in os.listdir(input_folder) if os.path.isfile(os.path.join(input_folder, f))]
+    except Exception as e:
+        print(f"无法读取输入文件夹: {e}")
+        return False, 0, 0, 0
     
     if not files:
         print("输入文件夹中没有找到任何文件！")
@@ -121,9 +208,13 @@ def process_images(input_folder, output_folder, target_format):
         
         # 如果源格式与目标格式相同，直接复制
         if file_ext == target_format:
-            shutil.copy2(input_path, output_path)
-            print(f" -> 复制 (格式相同)")
-            skipped_count += 1
+            try:
+                shutil.copy2(input_path, output_path)
+                print(f" -> 复制 (格式相同)")
+                skipped_count += 1
+            except Exception as e:
+                print(f" -> 复制失败: {e}")
+                error_count += 1
             continue
         
         # 转换图片
@@ -160,15 +251,28 @@ def ask_continue():
 def clear_input_folder(input_folder):
     """清空输入文件夹"""
     try:
+        files_removed = 0
         for filename in os.listdir(input_folder):
             file_path = os.path.join(input_folder, filename)
             if os.path.isfile(file_path):
                 os.remove(file_path)
-        print(f"已清空输入文件夹: {input_folder}")
+                files_removed += 1
+        print(f"已清空输入文件夹: {input_folder} (删除了 {files_removed} 个文件)")
         return True
     except Exception as e:
         print(f"清空输入文件夹时出错: {e}")
         return False
+
+def change_folders():
+    """询问用户是否要更改文件夹设置"""
+    while True:
+        change = input("\n是否要更改输入/输出文件夹设置? (Y/N): ").strip().lower()
+        if change in ['y', 'yes']:
+            return True
+        elif change in ['n', 'no']:
+            return False
+        else:
+            print("请输入 Y(是) 或 N(否)")
 
 def main():
     """主函数"""
@@ -177,13 +281,22 @@ def main():
     print("=" * 60)
     
     try:
-        # 创建文件夹
-        input_folder, output_folder = create_folders()
+        # 设置文件夹
+        input_folder, output_folder = setup_folders()
         
         # 主循环
         while True:
             # 检查输入文件夹是否有文件
-            files = [f for f in os.listdir(input_folder) if os.path.isfile(os.path.join(input_folder, f))]
+            try:
+                files = [f for f in os.listdir(input_folder) if os.path.isfile(os.path.join(input_folder, f))]
+            except Exception as e:
+                print(f"无法访问输入文件夹: {e}")
+                if change_folders():
+                    input_folder, output_folder = setup_folders()
+                    continue
+                else:
+                    break
+                    
             if not files:
                 print(f"\n请在 '{input_folder}' 文件夹中放入要转换的图片")
                 input("放置完成后，按 Enter 键继续...")
@@ -208,9 +321,14 @@ def main():
                 break
                 
             # 询问是否清空输入文件夹
-            clear_input = input("\n是否清空输入文件夹以准备下一批图片? (Y/N): ").strip().lower()
-            if clear_input in ['y', 'yes']:
-                clear_input_folder(input_folder)
+            if files:  # 只有在有文件时才询问
+                clear_input = input("\n是否清空输入文件夹以准备下一批图片? (Y/N): ").strip().lower()
+                if clear_input in ['y', 'yes']:
+                    clear_input_folder(input_folder)
+            
+            # 询问是否要更改文件夹设置
+            if change_folders():
+                input_folder, output_folder = setup_folders()
         
         print(f"\n感谢使用图片格式批量转换工具！")
         
