@@ -66,4 +66,25 @@ pip install rarfile py7zr
 ```  
 
 - 相关示例  
-![Batch_Decompress.py示例图](images/Batch_Decompress.png)  
+![Batch_Decompress.py示例图](images/Batch_Decompress.png)
+
+### PathFinder - 跨平台文件/目录路径查找工具  
+**文件**: `PathFinder.py`  
+
+#### 功能描述  
+提供统一接口在 Windows、macOS、Linux 上查找指定的文件或目录，特别支持通过 Steam 库定位游戏安装路径，也支持手动指定目录进行搜索并返回匹配路径。
+
+- **双模式**：`steam`（自动检测 Steam 库并查找游戏）和 `manual`（直接指定路径或在目录内搜索）。
+- **交互支持**：可弹出图形化对话框（基于 `tkinter`）让用户选择匹配项或输入路径；也支持非交互模式（`interactive=False`）直接返回第一个匹配或 `None`。
+- **灵活返回**：可返回文件路径或目录路径（通过 `target_type` 参数指定）。
+
+#### 注意事项  
+- 交互模式依赖 `tkinter`（通常随 Python 自带），若不可用则自动回退控制台交互。
+- 当 `manual_path` 为空字符串且 `interactive=True` 时，会弹出文件/目录选择对话框（根据 `target_type`）。
+- 无需安装第三方库，仅使用 Python 标准库。
+
+#### 安装额外依赖库  
+无需额外依赖（可选：若需图形化文件选择，确保 `tkinter` 可用）。
+
+- 相关示例  
+（暂无示例图）
