@@ -11,32 +11,35 @@ import tkinter as tk
 from tkinter import filedialog, messagebox, simpledialog
 import logging
 
-# 设置日志
+# 设置日志配置，记录程序运行信息
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 class BatchExtractor:
+    """批量解压工具主类，支持ZIP、RAR、7z及分段压缩包的批量解压"""
+    
     def __init__(self):
-        self.supported_formats = {'.zip', '.rar', '.7z', '.001', '.z01'}
-        self.multi_part_extensions = {'.001', '.z01', '.r00', '.7z.001'}
-        self.password_cache = {}
-        self.root = None
-        self.program_dir = Path(__file__).parent
+        """初始化BatchExtractor实例，配置支持的文件格式和密码缓存"""
+        self.supported_formats = {'.zip', '.rar', '.7z', '.001', '.z01'}  # 支持的压缩格式
+        self.multi_part_extensions = {'.001', '.z01', '.r00', '.7z.001'}   # 分段压缩包扩展名
+        self.password_cache = {}  # 密码缓存，避免重复输入相同密码
+        self.root = None  # Tkinter根窗口
+        self.program_dir = Path(__file__).parent  # 程序所在目录
         
     def initialize_ui(self):
-        """初始化UI（仅在需要时）"""
+        """初始化Tkinter UI（仅在需要文件对话框时调用）"""
         if not self.root:
             self.root = tk.Tk()
-            self.root.withdraw()
+            self.root.withdraw()  # 隐藏主窗口
     
     def close_ui(self):
-        """关闭UI"""
+        """关闭Tkinter UI"""
         if self.root:
             self.root.destroy()
             self.root = None
     
     def console_input(self, prompt: str, valid_options: List[str] = None) -> str:
-        """控制台输入处理"""
+        """控制台输入处理，带验证功能"""
         while True:
             user_input = input(prompt).strip().lower()
             if not valid_options or user_input in valid_options:
@@ -51,7 +54,7 @@ class BatchExtractor:
         return temp_dir
     
     def select_input_folder(self) -> Optional[Path]:
-        """选择输入文件夹"""
+        """选择包含压缩包的输入文件夹"""
         print("\n" + "="*50)
         print("选择输入文件夹")
         print("="*50)
@@ -86,7 +89,7 @@ class BatchExtractor:
                 return temp_dir
     
     def select_output_folder(self) -> Optional[Path]:
-        """选择输出文件夹"""
+        """选择解压输出文件夹"""
         print("\n" + "="*50)
         print("选择输出文件夹")
         print("="*50)
@@ -119,7 +122,7 @@ class BatchExtractor:
                 return temp_dir
     
     def find_archive_files(self, input_folder: Path) -> List[Path]:
-        """查找所有支持的压缩文件"""
+        """在输入文件夹中查找所有支持的压缩文件"""
         archive_files = []
         for file_path in input_folder.iterdir():
             if file_path.is_file():
@@ -162,7 +165,7 @@ class BatchExtractor:
         return multi_part_groups, single_files
     
     def verify_archive(self, archive_path: Path, password: Optional[str] = None) -> Tuple[bool, str]:
-        """验证压缩包是否完整"""
+        """验证压缩包是否完整，返回(是否有效, 状态信息)"""
         suffix = archive_path.suffix.lower()
         
         try:
@@ -212,7 +215,7 @@ class BatchExtractor:
     
     def verify_all_archives(self, multi_part_groups: Dict[str, List[Path]], 
                           single_files: List[Path]) -> Tuple[List[Path], List[Tuple[Path, str]]]:
-        """验证所有压缩包"""
+        """验证所有压缩包，返回(有效文件列表, 问题文件列表)"""
         valid_files = []
         problematic_files = []
         
@@ -245,7 +248,7 @@ class BatchExtractor:
         return valid_files, problematic_files
     
     def get_password(self, archive_path: Path) -> Optional[str]:
-        """获取密码输入"""
+        """获取密码输入，支持跳过和缓存"""
         archive_name = archive_path.name
         
         if archive_path in self.password_cache:
@@ -309,7 +312,7 @@ class BatchExtractor:
             return False
     
     def extract_archive(self, archive_path: Path, output_folder: Path) -> bool:
-        """解压单个压缩包"""
+        """解压单个压缩包，支持密码重试"""
         suffix = archive_path.suffix.lower()
         archive_name = archive_path.stem
         
@@ -371,7 +374,7 @@ class BatchExtractor:
         return success
     
     def process_archives(self, input_folder: Path, output_folder: Path):
-        """处理所有压缩包"""
+        """处理所有压缩包的主流程"""
         # 查找所有压缩文件
         archive_files = self.find_archive_files(input_folder)
         if not archive_files:
@@ -440,7 +443,7 @@ class BatchExtractor:
         print("="*50)
     
     def run_extraction_cycle(self) -> bool:
-        """运行一次解压循环"""
+        """运行一次解压循环，返回是否继续"""
         try:
             # 选择输入文件夹
             input_folder = self.select_input_folder()
@@ -505,7 +508,7 @@ class BatchExtractor:
             self.close_ui()
 
 def main():
-    """主函数"""
+    """主函数：检查依赖并启动程序"""
     # 检查必要的库
     try:
         import rarfile
